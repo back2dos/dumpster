@@ -10,7 +10,7 @@ class RunTests {
 
   static function main() {
 
-    var c = new Users('users', new FsDriver({
+    var c = new Users('users', new dumpster.drivers.FsDriver({
       path: js.Node.__dirname + '/test',
       engine: new dumpster.QueryEngine.JsEngine()
     }));

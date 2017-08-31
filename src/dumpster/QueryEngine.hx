@@ -59,7 +59,7 @@ class JsEngine implements QueryEngine {
             arrayOp('filter', cond);
           case ArrayFirst(js(_) => cond):
             arrayOp('find', cond);           
-          case ArrayFold(js(_) => cond, js(_) => init):
+          case ArrayFold(js(_) => init, js(_) => cond):
             '$v.reduce(function (result, item, pos, array) {
               var doc = { result: result, item: item, pos: pos, array: array };
               return $cond;

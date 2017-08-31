@@ -1,13 +1,22 @@
-package dumpster;
+package dumpster.drivers;
 
-import dumpster.MemoryDriver.Payload;
-
+#if asys
 using StringTools;
 using asys.io.File;
 using asys.FileSystem;
-using tink.CoreApi;
 
-class FsPersistence implements Persistence {
+class FsDriver extends MemoryDriver {
+  public function new(options:{ path:String, ?engine:QueryEngine }) {
+    var persistence = new FsPersistence(options.path);
+    super({
+      persist: persistence,
+      engine: options.engine,
+      initWith: persistence.initialState,
+    });
+  }
+}
+
+private class FsPersistence implements Persistence {
   static inline function p<T>(p:Promise<T>):Promise<T> return p;
   public var initialState(default, null):Promise<Payload>;
   
@@ -89,3 +98,11 @@ class FsPersistence implements Persistence {
     
   
 }
+#else
+@:require(asys)
+class FsDriver extends MemoryDriver {
+  public function new(options:{ path:String, ?engine:QueryEngine }) {
+    super(null);
+  }
+}
+#end

@@ -9,7 +9,7 @@ class CollectionBase<A:{}, Fields> {
   public var name(default, null):CollectionName<A>;
   public var fields(default, null):Fields;
   
-  var driver:Driver;
+  var driver:dumpster.drivers.Driver;
 
   function new(name, fields, driver) {
     this.name = name;

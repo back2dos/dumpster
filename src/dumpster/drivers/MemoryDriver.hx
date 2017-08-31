@@ -1,12 +1,8 @@
-package dumpster;
+package dumpster.drivers;
 
+import dumpster.drivers.Driver;
 import dumpster.AST;
-import dumpster.Driver;
 import haxe.DynamicAccess;
-
-using tink.CoreApi;
-
-typedef Payload = DynamicAccess<Array<Result<Dynamic>>>;
 
 private class Ephemere implements Persistence {
   public function new() {}
@@ -23,7 +19,7 @@ class MemoryDriver implements Driver {
   public function new(?options:{ ?initWith:Promise<Payload>, ?engine:QueryEngine, ?persist:Persistence }) {
     if (options == null) options = {};
     this.collections = switch options.initWith {
-      case null: new DynamicAccess();
+      case null: new Payload();
       case v: v;
     }
     this.engine = switch options.engine {
@@ -50,28 +46,26 @@ class MemoryDriver implements Driver {
   static inline function byId<Id, A:{ id:Id }>(a:Array<A>, id:Id)
     return first(a, function (o) return o.id == id);
 
-  public function get<A:{}>(within:CollectionName<A>, id:Id<A>):Promise<Result<A>>
+  public function get<A:{}>(id:Id<A>, within:CollectionName<A>):Promise<Document<A>>
     return
       collections.next(function (c) return switch c[within] {
         case null: 
           new Error(NotFound, 'unknown collection `$within`');
         case v: 
-          
           switch byId(v,id) {
             case None: new Error(NotFound, 'unknown collection `$within`');
             case Some(doc): doc;
           }
-
       });
 
-  public function findOne<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Option<Result<A>>>
+  public function findOne<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Option<Document<A>>>
     return doFind(within, check, function (docs, f) {
       for (d in docs)
         if (f(d.data)) return Some(d);
       return None;
     });
   
-  function doFind<A:{}, Ret>(within:CollectionName<A>, check:ExprOf<A, Bool>, f:Array<Result<A>> -> (A->Bool) -> Ret):Promise<Ret>
+  function doFind<A:{}, Ret>(within:CollectionName<A>, check:ExprOf<A, Bool>, f:Array<Document<A>> -> (A->Bool) -> Ret):Promise<Ret>
     return
       collections.next(function (c):Ret return switch c[within] {
         case null: 
@@ -80,7 +74,7 @@ class MemoryDriver implements Driver {
           f(v, engine.compile(check));
       });
 
-  public function find<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Result<A>>>
+  public function find<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>
     return 
       doFind(within, check, function (docs, f) return [for (d in docs) if (f(d.data)) Reflect.copy(d)]);
   
@@ -104,7 +98,7 @@ class MemoryDriver implements Driver {
   public function update<A:{}>(id:Id<A>, within:CollectionName<A>, patch:PatchFor<A>, ?options:{ ?assuming:UpdateCondition, ?patiently:Bool }):Promise<A>
     return 
       collections.next(function (c) {
-        var v:Array<Result<A>> = 
+        var v:Array<Document<A>> = 
           switch c[within] {
             case null: c[within] = [];
             case v: v;
@@ -113,13 +107,13 @@ class MemoryDriver implements Driver {
         if (options == null)
           options = {};
         
-        for (d in (v:Array<Result<A>>))
+        for (d in (v:Array<Document<A>>))
           if (d.id == id) {
             doc = Some(d);
             break;
           }
 
-        function doUpdate(doc:Result<A>):Promise<A> {
+        function doUpdate(doc:Document<A>):Promise<A> {
           var patch = patch.fields(),
               nu = shallowCopy(doc.data);
           

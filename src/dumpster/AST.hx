@@ -108,7 +108,7 @@ enum Unop {
   BitFlip;
   Neg;
     
-  ArrayFold(initial:Any, step:Expr);
+  ArrayFold(initial:Expr, step:Expr);
   ArrayFirst(check:Expr);
   ArrayForAll(check:Expr);
   ArrayMap(step:Expr);
