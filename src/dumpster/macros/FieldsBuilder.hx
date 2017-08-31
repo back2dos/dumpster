@@ -23,7 +23,7 @@ class FieldsBuilder {
               name: f.name,
               pos: f.pos,
               access: [APublic],
-              kind: FProp("default", "null", macro : dumpster.AST.ExprOf<$doc, $ct>, macro dumpster.AST.ExprData.EField($v{f.name})),
+              kind: FProp("default", "null", macro : dumpster.AST.ExprOf<$doc, $ct>, macro dumpster.AST.ExprData.EField(dumpster.AST.ExprData.EDoc, $v{f.name})),
             });
           }
         default: ctx.pos.error('Fields must be specified per anonymous type');

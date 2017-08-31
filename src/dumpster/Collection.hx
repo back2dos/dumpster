@@ -17,10 +17,16 @@ class CollectionBase<A:{}, Fields> {
     this.driver = driver;
   }
 
-  public function find(?criterion:Fields->ExprOf<A, Bool>) {
+  public function find(?criterion:Fields->ExprOf<A, Bool>)
     return driver.find(name, switch criterion {
       case null: true;
       case f: f(fields);
     });
-  }
+
+  public function findOne(?criterion:Fields->ExprOf<A, Bool>)
+    return driver.findOne(name, switch criterion {
+      case null: true;
+      case f: f(fields);
+    });
+
 }

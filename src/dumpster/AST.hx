@@ -10,6 +10,9 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
   
   inline function new(d) this = d;
 
+  public inline function notNull():ExprOf<O, Bool>
+    return EBinop(Neq, this, EConst(null));
+
   @:from static function ofExprData<O, T>(data:ExprData<O, T>):ExprOf<O, T>
     return new ExprOf(data);
     
@@ -39,11 +42,25 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
     
   @:impl static public function fold<O, T, R>(array:ExprData<O, Array<T>>, initial:ExprOf<O, R>, step:{>ArrayContext<O, T>, result:ExprOf<O, R> }->ExprOf<O, R>):ExprOf<O, R>
     return EUnop(ArrayFold(initial, step({
-      result: EField('result'),
-      item: EField('item'),
-      index: EField('index'),
-      array: EField('array'),
+      result: EField(EDoc, 'result'),
+      item: EField(EDoc, 'item'),
+      index: EField(EDoc, 'index'),
+      array: EField(EDoc, 'array'),
     })), array);
+
+  @:impl static public function filter<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Array<T>>
+    return EUnop(ArrayFilter(cond({
+      item: EField(EDoc, 'item'),
+      index: EField(EDoc, 'index'),
+      array: EField(EDoc, 'array'),
+    })), array);    
+
+  @:impl static public function first<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Null<T>>
+    return EUnop(ArrayFirst(cond({
+      item: EField(EDoc, 'item'),
+      index: EField(EDoc, 'index'),
+      array: EField(EDoc, 'array'),
+    })), array);       
 
   @:from static function ofConst<O, T:JsonConst>(v:T):ExprOf<O, T>
     return EConst(v);
@@ -54,8 +71,9 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
 typedef Expr = ExprOf<Dynamic, Dynamic>;
     
 enum ExprData<O, T> {
-  EField(name:String);
-  EIndex(index:Int);
+  EDoc;
+  EField(target:Expr, name:String);
+  EIndex(target:Expr, index:Int);
   EConst(v:Any);
   EIf(cond:Expr, cons:Expr, alt:Expr);
   EBinop(op:Binop, e1:Expr, e2:Expr);
@@ -68,6 +86,7 @@ enum Binop {
   Gt;
   Lt;
   Eq;
+  Neq;
   Add;
   Subtract;
   Multiply;

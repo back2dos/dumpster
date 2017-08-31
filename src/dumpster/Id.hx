@@ -3,10 +3,20 @@ package dumpster;
 using StringTools;
 
 abstract Id<A:{}>(String) {
+  
+  static inline var EXT = '.dump.json';
+  
   inline function new(s) this = s;
+
   @:to public function toString() 
     return this.urlDecode();
   
+  public function toFileName()
+    return '$this.dump.json';
+
+  static public function fromFileName(s:String)
+    return new Id(s.substr(0, s.length - EXT.length));
+
   @:from static public function ofString(s:String) {
     var ret = new StringBuf(),
         s = haxe.io.Bytes.ofString(s);
@@ -17,7 +27,7 @@ abstract Id<A:{}>(String) {
       if (c >= 'a'.code && c <= 'z'.code || c >= 'A'.code && c <= 'Z'.code || c >= '0'.code && c <= '9'.code)
         ret.addChar(c);
       else {
-        ret.addChar('%'.code);
+        ret.addChar('_'.code);
         ret.add(i.hex(2));
       }
     }

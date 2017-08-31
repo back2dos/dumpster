@@ -1,10 +1,68 @@
 package dumpster;
 
 import dumpster.AST;
+import js.Lib.eval;
 
 interface QueryEngine {
   function compile<O, T>(e:ExprOf<O, T>):O->T;
 }
+
+#if js
+class JsEngine implements QueryEngine {
+  public function new() {}
+  public function compile<O, T>(e:ExprOf<O, T>):O->T {
+    var src = '(function (doc) { return ${js(e)}; })';
+    trace(src);
+    return eval(src);
+  }
+  
+  static function js(e:Expr)
+    return switch (cast e:ExprData<Dynamic, Dynamic>) {
+      case EDoc: 'doc';
+      case EField(js(_) => obj, field): '$obj.$field';
+      case EBinop(op, js(_) => a, js(_) => b): 
+        switch op {
+          case Gte: '($a >= $b)';
+          case Lte: '($a <= $b)';
+          case Gt: '($a > $b)';
+          case Lt: '($a < $b)';
+          case Eq: '($a == $b)';
+          case Neq: '($a != $b)';
+          case Add: '($a + $b)';
+          case Subtract: '($a - $b)';
+          case Multiply: '($a * $b)';
+          case Divide: '($a / $b)';
+          case Pow: 'Math.pow($a, $b)';
+          case And: '($a && $b)';
+          case Or: '($a || $b)';
+          case BitAnd: '($a && $b)';
+          case BitOr: '($a | $b)';
+          case BitXor: '($a ^ $b)';
+        }     
+      case EConst(v): haxe.Json.stringify(v);
+      case EIf(js(_) => a, js(_) => b, js(_) => c): '($a ? $b : $c)'; 
+      case EIndex(js(_)=> a, i): '$a[$i]';
+      case EUnop(op, js(_) => v): 
+        switch op {
+          case Neg: '-$v';
+          case Not: '!$v';
+          case BitFlip: '~$v';
+          case Log: 'Math.log($v)';
+          case ArrayFilter(js(_) => cond): 
+            '$v.filter(function (item, pos, array) {
+              var doc = { item: item, pos: pos, array: array };
+              return $cond;
+            })';
+          case ArrayFirst(js(_) => cond):
+            '$v.find(function (item, pos, array) {
+              var doc = { item: item, pos: pos, array: array };
+              return $cond;
+            })';            
+          default: throw 'not implemented';
+        }
+    }
+}
+#end
 
 class SimpleEngine implements QueryEngine {
   public function new() {}
@@ -17,17 +75,19 @@ class SimpleEngine implements QueryEngine {
       return evaluate(doc, e);
       
     return switch e {
-      case EField(name): 
-        try Reflect.field(doc, name)
+      case EDoc: doc;
+      case EField(rec(_) => obj, name): 
+        try Reflect.field(obj, name)
         catch (e:Dynamic) null;
-      case EIndex(index): 
-        try (doc:Dynamic)[index]
+      case EIndex(rec(_) => array, index): 
+        try array[index]
         catch (e:Dynamic) null;
       case EConst(v): v;  
       case EIf(cond, cons, alt):
         if (rec(cond)) rec(cons) else rec(alt);
       case EBinop(op, a, b):
         switch op {
+          case Neq: rec(a) != rec(b);
           case Eq: rec(a) == rec(b);
           case Gte: rec(a) >= rec(b);
           case Lte: rec(a) <= rec(b);
