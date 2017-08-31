@@ -62,6 +62,9 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
       array: EField(EDoc, 'array'),
     })), array);       
 
+  @:impl static public function has<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Bool>
+    return first(array, cond).notNull();
+
   @:from static function ofConst<O, T:JsonConst>(v:T):ExprOf<O, T>
     return EConst(v);
 }

@@ -43,22 +43,31 @@ class JsEngine implements QueryEngine {
       case EIf(js(_) => a, js(_) => b, js(_) => c): '($a ? $b : $c)'; 
       case EIndex(js(_)=> a, i): '$a[$i]';
       case EUnop(op, js(_) => v): 
+
+        function arrayOp(name:String, ret:String) 
+          return '($v).$name(function (item, pos, array) {
+            var doc = { item: item, pos: pos, array: array };
+            return $ret;
+          })';  
+        
         switch op {
           case Neg: '-$v';
           case Not: '!$v';
           case BitFlip: '~$v';
           case Log: 'Math.log($v)';
           case ArrayFilter(js(_) => cond): 
-            '$v.filter(function (item, pos, array) {
-              var doc = { item: item, pos: pos, array: array };
-              return $cond;
-            })';
+            arrayOp('filter', cond);
           case ArrayFirst(js(_) => cond):
-            '$v.find(function (item, pos, array) {
-              var doc = { item: item, pos: pos, array: array };
+            arrayOp('find', cond);           
+          case ArrayFold(js(_) => cond, js(_) => init):
+            '$v.reduce(function (result, item, pos, array) {
+              var doc = { result: result, item: item, pos: pos, array: array };
               return $cond;
-            })';            
-          default: throw 'not implemented';
+            }, $init)';          
+          case ArrayForAll(js(_) => cond):
+            arrayOp('every', cond);
+          case ArrayMap(js(_) => nu):
+            arrayOp('map', nu);
         }
     }
 }

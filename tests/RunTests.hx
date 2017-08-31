@@ -36,7 +36,7 @@ class RunTests {
     //   image: doc.image + ' 1234'
     // }, { assuming: NotModifiedSince(Date.now().delta(5.minutes())) }).handle(function (o) trace(o.sure()));
 
-    c.find(function (doc) return doc.likes.first(function (l) return l.item == 'haxe').notNull())
+    c.find(function (doc) return doc.likes.has(function (l) return l.item == 'haxe'))
       .handle(function (o) trace(o.sure()));
 
     // f.foo.fold(0, function (o) return o.result + o.item);
