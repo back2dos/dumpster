@@ -1,0 +1,4 @@
+-D dumpster=dev
+-cp src
+-lib tink_core
+-lib tink_macro
