@@ -6,7 +6,7 @@ typedef ArrayContext<O, T> = {
   array:ExprOf<O, Array<T>>,
 }
 
-abstract ExprOf<O, T>(ExprData<O, T>) {
+abstract ExprOf<O, T>(ExprData<O, T>) from ExprData<O, T> {
   
   inline function new(d) this = d;
 
@@ -63,10 +63,15 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
   @:impl static public function has<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Bool>
     return first(array, cond).notNull();
 
-  @:from static function ofConst<O, T>(v:T):ExprOf<O, T>
+  @:from static function ofObj<O, T:{}>(v:T):ExprOf<O, T>
+    return EConst(v);
+
+  @:from static function ofPrimitive<O, T:Primitive>(v:T):ExprOf<O, T>
     return EConst(v);
 
 }
+
+@:coreType abstract Primitive from Int from Float from String from Bool {}
 
 typedef Expr = ExprOf<Dynamic, Dynamic>;
     
