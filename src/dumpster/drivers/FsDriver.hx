@@ -4,10 +4,15 @@ package dumpster.drivers;
 using StringTools;
 using asys.io.File;
 using asys.FileSystem;
+using haxe.io.Path;
 
 class FsDriver extends MemoryDriver {
-  public function new(options:{ path:String, ?engine:QueryEngine }) {
-    var persistence = new FsPersistence(options.path);
+  public function new(?options:{ ?path:String, ?engine:QueryEngine }) {
+    if (options == null) options = {};
+    var persistence = new FsPersistence(switch options.path {
+      case null: './dumpster';
+      case v: v;
+    });
     super({
       persist: persistence,
       engine: options.engine,
@@ -22,9 +27,21 @@ private class FsPersistence implements Persistence {
   
   var path:String;
 
+  static function ensureDir(path:String):Promise<Noise> 
+    return 
+      switch path.removeTrailingSlashes() {
+        case '' | '.' | '/':
+          Noise;
+        case path:
+          path.isDirectory().next(function (isDir) return
+            if (isDir) Noise
+            else ensureDir(path.directory()).next(function (_) return path.createDirectory())
+          );        
+      }
+
   public function new(path:String) {
     this.path = path;
-    this.initialState = p(path.readDirectory())
+    this.initialState = ensureDir(path).next(function (_) return path.readDirectory())
       .next(function (collections) 
         return Promise.inParallel([
           for (dir in collections)

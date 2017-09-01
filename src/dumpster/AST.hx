@@ -49,27 +49,24 @@ abstract ExprOf<O, T>(ExprData<O, T>) {
     })), array);
 
   @:impl static public function filter<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Array<T>>
-    return EUnop(ArrayFilter(cond({
-      item: EField(EDoc, 'item'),
-      index: EField(EDoc, 'index'),
-      array: EField(EDoc, 'array'),
-    })), array);    
+    return EUnop(ArrayFilter(cond(ctx())), array);    
+
+  @:impl static public function map<O, T, R>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, R>):ExprOf<O, Array<R>>
+    return EUnop(ArrayFilter(cond(ctx())), array);    
+
+  static function ctx<O, T>():ArrayContext<O, T>
+    return { item: EField(EDoc, 'item'), index: EField(EDoc, 'index'), array: EField(EDoc, 'array') };
 
   @:impl static public function first<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Null<T>>
-    return EUnop(ArrayFirst(cond({
-      item: EField(EDoc, 'item'),
-      index: EField(EDoc, 'index'),
-      array: EField(EDoc, 'array'),
-    })), array);       
+    return EUnop(ArrayFirst(cond(ctx())), array);       
 
   @:impl static public function has<O, T>(array:ExprData<O, Array<T>>, cond:ArrayContext<O, T>->ExprOf<O, Bool>):ExprOf<O, Bool>
     return first(array, cond).notNull();
 
-  @:from static function ofConst<O, T:JsonConst>(v:T):ExprOf<O, T>
+  @:from static function ofConst<O, T>(v:T):ExprOf<O, T>
     return EConst(v);
-}
 
-@:coreType abstract JsonConst from Int from String from Date from Float from Bool {}
+}
 
 typedef Expr = ExprOf<Dynamic, Dynamic>;
     

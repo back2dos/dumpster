@@ -1,4 +1,4 @@
-package dumpster;
+package dumpster.types;
 
 import dumpster.AST;
 
@@ -7,7 +7,7 @@ class Collection<A:{}> {}
 
 class CollectionBase<A:{}, Fields> {
   public var name(default, null):CollectionName<A>;
-  public var fields(default, null):Fields;
+  var fields:Fields;
   
   var driver:dumpster.drivers.Driver;
 

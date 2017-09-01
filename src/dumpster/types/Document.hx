@@ -1,4 +1,4 @@
-package dumpster;
+package dumpster.types;
 
 typedef Document<A:{}> = {
   var id:Id<A>;

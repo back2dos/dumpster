@@ -6,7 +6,7 @@ using tink.MacroApi;
 
 class FieldsBuilder {
   static function build() {
-    return tink.macro.BuildCache.getType('dumpster.Fields', function (ctx) {
+    return tink.macro.BuildCache.getType('dumpster.types.Fields', function (ctx) {
       var name = ctx.name;
 
       var ret = macro class $name {

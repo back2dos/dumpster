@@ -6,7 +6,7 @@ using tink.MacroApi;
 
 class PatchBuilder {
   static function build() {
-    return tink.macro.BuildCache.getType('dumpster.Patch', function (ctx) {
+    return tink.macro.BuildCache.getType('dumpster.types.Patch', function (ctx) {
       var name = ctx.name;
 
       var ret = macro class $name {};

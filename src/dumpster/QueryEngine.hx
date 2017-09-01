@@ -10,11 +10,8 @@ interface QueryEngine {
 #if js
 class JsEngine implements QueryEngine {
   public function new() {}
-  public function compile<O, T>(e:ExprOf<O, T>):O->T {
-    var src = '(function (doc) { return ${js(e)}; })';
-    trace(src);
-    return eval(src);
-  }
+  public function compile<O, T>(e:ExprOf<O, T>):O->T 
+    return eval('(function (doc) { return ${js(e)}; })');
   
   static function js(e:Expr)
     return switch (cast e:ExprData<Dynamic, Dynamic>) {

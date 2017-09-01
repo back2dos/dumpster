@@ -1,4 +1,4 @@
-package dumpster;
+package dumpster.types;
 
 using StringTools;
 
@@ -17,7 +17,7 @@ abstract Id<A:{}>(String) {
   static public function fromFileName(s:String)
     return new Id(s.substr(0, s.length - EXT.length));
 
-  @:from static public function ofString(s:String) {
+  @:from static public function ofString<T:{}>(s:String):Id<T> {
     var ret = new StringBuf(),
         s = haxe.io.Bytes.ofString(s);
         
