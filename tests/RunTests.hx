@@ -18,7 +18,7 @@ class RunTests {
     var db:Db = new Db(
       #if asys
         new FsDriver()
-      #elseif js
+      #elseif (js && !nodejs)
         new LocalStorageDriver()
       #else
         new MemoryDriver()
