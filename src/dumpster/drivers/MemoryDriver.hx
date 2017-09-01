@@ -15,6 +15,7 @@ class MemoryDriver implements Driver {
   var collections:Promise<Payload>;
   var engine:QueryEngine;
   var persistence:Persistence;
+  var shutdownProgress:Promise<Noise>;
 
   public function new(?options:{ ?initWith:Promise<Payload>, ?engine:QueryEngine, ?persist:Persistence }) {
     if (options == null) options = {};
@@ -32,6 +33,16 @@ class MemoryDriver implements Driver {
       case v: v;
     }
   }  
+
+  public function shutdown() {
+    if (shutdownProgress == null) {
+      collections = new Error('Dumpster is shutting down');
+      shutdownProgress = Future.async(
+        function (cb) haxe.Timer.delay(cb.bind(Noise), 1000)//TODO: obviously, this could be done a lot better by waiting for all pending commits to finish
+      );
+    }
+    return shutdownProgress;
+  }
 
   static inline function first<A>(a:Array<A>, f:A->Bool) {
     var ret = None;
@@ -126,17 +137,29 @@ class MemoryDriver implements Driver {
               case null: Reflect.deleteField(nu, k);
               case v: Reflect.setField(nu, k, v);
             }
+          
+          var backup = shallowCopy(doc);
+
+          doc.data = nu;
+          doc.updated = Date.now();
+          if (doc.created == null) {
+            doc.created = doc.updated;
+            v.push(doc);
+          }
 
           var commit = persistence.commit(id, within, nu);
           commit.handle(function (o) switch o {
             case Success(d): 
-              doc.data = nu;
-              doc.updated = d;
-              if (doc.created == null) {
-                doc.created = d;
-                v.push(doc);
-              }
+              doc.updated = Date.now();
+              if (backup.created == null)
+                doc.created = doc.updated;
             case Failure(e):
+              if (backup.created == null)
+                v.remove(doc);
+              else {
+                doc.data = backup.data;
+                doc.updated = backup.updated;
+              }
           });
 
           var copy = Reflect.copy(nu);

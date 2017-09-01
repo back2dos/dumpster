@@ -15,7 +15,11 @@ abstract Id<A:{}>(String) {
     return '$this.dump.json';
 
   static public function fromFileName(s:String)
-    return new Id(s.substr(0, s.length - EXT.length));
+    return 
+      if (s.endsWith(EXT))
+        Some(new Id(s.substr(0, s.length - EXT.length)));
+      else
+        None;
 
   @:from static public function ofString<T:{}>(s:String):Id<T> {
     var ret = new StringBuf(),

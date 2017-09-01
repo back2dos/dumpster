@@ -10,7 +10,7 @@ class FsDriver extends MemoryDriver {
   public function new(?options:{ ?path:String, ?engine:QueryEngine }) {
     if (options == null) options = {};
     var persistence = new FsPersistence(switch options.path {
-      case null: './dumpster';
+      case null: './dumpster.db';
       case v: v;
     });
     super({
@@ -27,17 +27,22 @@ private class FsPersistence implements Persistence {
   
   var path:String;
 
-  static function ensureDir(path:String):Promise<Noise> 
-    return 
-      switch path.removeTrailingSlashes() {
-        case '' | '.' | '/':
-          Noise;
-        case path:
-          path.isDirectory().next(function (isDir) return
-            if (isDir) Noise
-            else ensureDir(path.directory()).next(function (_) return path.createDirectory())
-          );        
-      }
+  static function ensureDir(path:String):Promise<String> {
+
+    function rec(path:String):Promise<Noise>
+      return 
+        switch path.removeTrailingSlashes() {
+          case '' | '.' | '/':
+            Noise;
+          case path:
+            path.isDirectory().next(function (isDir) return
+              if (isDir) Noise
+              else rec(path.directory()).next(function (_) return path.createDirectory())
+            );        
+        }
+
+    return rec(path).next(function (_) return path);
+  }
 
   public function new(path:String) {
     this.path = path;
@@ -47,21 +52,23 @@ private class FsPersistence implements Persistence {
           for (dir in collections)
             p('$path/$dir'.readDirectory()).next(function (documents) 
               return Promise.inParallel([
-                for (doc in documents) if (doc.endsWith('.dump.json')) {
+                for (doc in documents) switch Id.fromFileName(doc) {
+                  case None: continue;
+                  case Some(id):
                     
-                  var file = '$path/$dir/$doc';
-                  p(file.stat()).next(function (stat) {
-                    return p(file.getContent()).next(function (content):Promise<Document<Dynamic>> {
-                      try return ({
-                        id: Id.fromFileName(doc),
-                        created: stat.ctime,
-                        updated: stat.mtime,
-                        data: haxe.Json.parse(content),
-                      }:Document<Dynamic>)
-                      catch (e:Dynamic) 
-                        return new Error(422, 'Failed to parse JSON in $file because $e');
+                    var file = '$path/$dir/$doc';
+                    p(file.stat()).next(function (stat) {
+                      return p(file.getContent()).next(function (content):Promise<Document<Dynamic>> {
+                        try return ({
+                          id: id,
+                          created: stat.ctime,
+                          updated: stat.mtime,
+                          data: haxe.Json.parse(content),
+                        }:Document<Dynamic>)
+                        catch (e:Dynamic) 
+                          return new Error(422, 'Failed to parse JSON in $file because $e');
+                      });
                     });
-                  });
                 }
               ]).next(function (docs) return {
                 name: dir,
@@ -80,23 +87,13 @@ private class FsPersistence implements Persistence {
 
   var pending = new Map<String, Promise<Noise>>();
 
-  function doCommit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Noise> {
-    var dir = '$path/$collection';
-    
-    function save() {
+  function doCommit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Noise> 
+    return ensureDir('$path/$collection').next(function (dir) {
       var final = '$dir/${id.toFileName()}';
       var tmp = '$final.tmp';
       return p(tmp.saveContent(haxe.Json.stringify(payload, "  ")))
         .next(function (_) return tmp.rename(final));
-    }
-
-    return dir.exists().next(
-      function (exists) 
-        return
-          if (exists) save();
-          else p(dir.createDirectory()).next(function (_) return save())
-    );
-  }
+    });
 
   public function commit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
     var key = '$collection.$id';
@@ -107,6 +104,8 @@ private class FsPersistence implements Persistence {
         case v:
           v.flatMap(function (_) return doCommit(id, collection, payload));
       };
+
+    pending[key] = done;
 
     done.handle(function (_) if (pending[key] == done) pending.remove(key));
 

@@ -1,4 +1,3 @@
 -cp tests
--lib asys
 -main RunTests
 -dce full

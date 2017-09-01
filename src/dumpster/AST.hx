@@ -15,7 +15,13 @@ abstract ExprOf<O, T>(ExprData<O, T>) from ExprData<O, T> {
 
   @:from static function ofExprData<O, T>(data:ExprData<O, T>):ExprOf<O, T>
     return new ExprOf(data);
-    
+
+  @:op(a && b) static public function and<O>(a:ExprOf<O, Bool>, b:ExprOf<O, Bool>):ExprOf<O, Bool> 
+    return EBinop(And, a, b);
+
+  @:op(a || b) static public function or<O>(a:ExprOf<O, Bool>, b:ExprOf<O, Bool>):ExprOf<O, Bool> 
+    return EBinop(Or, a, b);
+
   @:op(a + b) static public function add<O, T:Float>(a:ExprOf<O, T>, b:ExprOf<O, T>):ExprOf<O, T> 
     return EBinop(Add, a, b);
 

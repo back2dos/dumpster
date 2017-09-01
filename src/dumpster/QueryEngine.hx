@@ -1,8 +1,9 @@
 package dumpster;
 
 import dumpster.AST;
+#if js
 import js.Lib.eval;
-
+#end
 interface QueryEngine {
   function compile<O, T>(e:ExprOf<O, T>):O->T;
 }

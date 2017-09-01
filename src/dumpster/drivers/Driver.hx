@@ -8,6 +8,7 @@ interface Driver {
   function find<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>;
   function count<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Int>;
   function update<A:{}>(id:Id<A>, within:CollectionName<A>, patch:PatchFor<A>, ?options:{ ?assuming:UpdateCondition, ?patiently:Bool }):Promise<A>;
+  function shutdown():Promise<Noise>;
 }
 
 enum UpdateCondition {

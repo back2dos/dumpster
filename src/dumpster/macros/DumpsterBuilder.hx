@@ -15,10 +15,10 @@ class DumpsterBuilder {
               case TAnonymous(a): a.get().fields;
               default: ctx.pos.error('Dumpster type parameter should be anonymous structure');
             }
-      var init = [];
-      var ret = macro class $name {
+      var init = [macro super(driver)];
+      var ret = macro class $name extends dumpster.Dumpster.Base {
         
-        public function new(driver:dumpster.drivers.Driver) $b{init} 
+        public function new(driver) $b{init} 
 
       };
 
