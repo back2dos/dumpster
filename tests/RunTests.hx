@@ -59,12 +59,15 @@ class RunTests extends TestCase {
       yep(its.score > 5);
       nope(its.score < 5);
       
-      var copy = e.compile(its.patch(function (o) return {
-        o1: o.o2,
-        o2: o.o2.patch(function (o) return {
-          foo: o.bar,
-          bar: o.foo,          
-        })
+      var copy = e.compile(its.patch({
+        o1: its.o2,
+        o2: 
+          its.o2.with(function (o) return
+            its.o2.patch({
+              foo: o.bar,
+              bar: o.foo,          
+            })
+          )
       }))(o);
 
       assertEquals(o.email, copy.email);
@@ -124,9 +127,9 @@ class RunTests extends TestCase {
         if (i & (1 << f) != 0) fruit[f]
       ]
     ];
-    
+
     db.users.set(dumpster.types.Id.ofString('hoho'), function (fields) return fields.patch(
-      function (u) return { email: 'hohoho!' }
+      { email: 'hohoho!' }
     )).handle(function (o) assert(!o.isSuccess()));
 
     Promise.inParallel([
@@ -139,7 +142,7 @@ class RunTests extends TestCase {
         }, { patiently: true })
     ]).next(function (users) {
       assert(users.length == 128);
-      return db.users.find(function (u) return u.likes.has(function (l) return l.item == 'bananas' || l.item == 'kiwis'));
+      return db.users.findAll(function (u) return u.likes.has(function (l) return l.item == 'bananas' || l.item == 'kiwis'));
     }).next(function (users) {
       assert(users.length == 96);
 
@@ -149,7 +152,7 @@ class RunTests extends TestCase {
       return Promise.inParallel([
         for (u in users)
           if (u.data.likes.has('bananas') && u.data.likes.has('kiwis')) {
-            db.users.set(u.id, function (u) return u.patch(function (_) return {
+            db.users.set(u.id, function (u) return u.patch({
               likes: ['stuff']
             }));
           }
@@ -157,7 +160,7 @@ class RunTests extends TestCase {
     }).next(function (users) {
       assert(users.length == 32);
       return 
-        db.users.find(function (u) return u.likes.has(function (l) return l.item == 'stuff'))
+        db.users.findAll(function (u) return u.likes.has(function (l) return l.item == 'stuff'))
           .next(function (users) {
             return assert(users.length == 32);
           });

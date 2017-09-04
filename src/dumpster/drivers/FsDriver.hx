@@ -87,7 +87,7 @@ private class FsPersistence implements Persistence {
 
   var pending = new Map<String, Promise<Noise>>();
 
-  function doCommit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Noise> 
+  function doCommit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Noise> 
     return ensureDir('$path/$collection').next(function (dir) {
       var final = '$dir/${id.toFileName()}';
       var tmp = '$final.tmp';
@@ -95,7 +95,7 @@ private class FsPersistence implements Persistence {
         .next(function (_) return tmp.rename(final));
     });
 
-  public function commit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
+  public function commit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
     var key = '$collection.$id';
     var done = 
       switch pending[key] {

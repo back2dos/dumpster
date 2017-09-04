@@ -13,6 +13,9 @@ abstract ExprOf<O, T>(ExprData<O, T>) from ExprData<O, T> {
   public inline function notNull():ExprOf<O, Bool>
     return EBinop(Neq, this, EConst(null));
 
+  public function with<R>(f:ExprOf<O, T>->R):R
+    return f(this);
+
   @:from static function ofExprData<O, T>(data:ExprData<O, T>):ExprOf<O, T>
     return new ExprOf(data);
 

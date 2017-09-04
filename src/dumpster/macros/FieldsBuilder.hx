@@ -46,8 +46,11 @@ class FieldsBuilder {
             if (doc == null) dumpster.AST.ExprData.EDoc;
             else doc;
 
-        public function patch(p:$self->Patch<O, $fields>, ?defaults:$fields):$_this
-          return dumpster.AST.ExprData.EUnop(Patch(cast p(cast this), defaults), this);
+        public function with<R>(f:$self->R)
+          return f(cast this);
+
+        public function patch(p:Patch<O, $fields>, ?defaults:$fields):$_this
+          return dumpster.AST.ExprData.EUnop(Patch(cast p, defaults), this);
 
         @:to function toExpr():$_this
           return this;

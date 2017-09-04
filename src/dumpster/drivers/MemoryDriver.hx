@@ -7,7 +7,7 @@ import dumpster.QueryEngine.SimpleEngine.shallowCopy;
 
 private class Ephemere implements Persistence {
   public function new() {}
-  public function commit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> 
+  public function commit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> 
     return Date.now();
 }
 
@@ -66,7 +66,7 @@ class MemoryDriver implements Driver {
   static inline function byId<Id, A:{ id:Id }>(a:Array<A>, id:Id)
     return first(a, function (o) return o.id == id);
 
-  public function get<A:{}>(id:Id<A>, within:CollectionName<A>):Promise<Document<A>>
+  public function get<A>(id:Id<A>, within:CollectionName<A>):Promise<Document<A>>
     return
       collections.next(function (c) return switch c[within] {
         case null: 
@@ -77,15 +77,8 @@ class MemoryDriver implements Driver {
             case Some(doc): doc;
           }
       });
-
-  public function findOne<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Option<Document<A>>>
-    return doFind(within, check, function (docs, f) {
-      for (d in docs)
-        if (f(d.data)) return Some(d);
-      return None;
-    });
   
-  function doFind<A:{}, Ret>(within:CollectionName<A>, check:ExprOf<A, Bool>, f:Array<Document<A>> -> (A->Bool) -> Ret):Promise<Ret>
+  function doFind<A, Ret>(within:CollectionName<A>, check:ExprOf<A, Bool>, f:Array<Document<A>> -> (A->Bool) -> Ret):Promise<Ret>
     return
       collections.next(function (c) return switch c[within] {
         case null: 
@@ -115,11 +108,25 @@ class MemoryDriver implements Driver {
         Type.createEnumIndex(e, Type.enumIndex(cast value), clone(Type.enumParameters(cast value)));
     }
 
-  public function findAll<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>
+  public function find<A>(within:CollectionName<A>, check:ExprOf<A, Bool>, ?options:{ ?max:Int }):Promise<Array<Document<A>>> {
+    
+    var max = switch options {
+      case null | { max: null }: 1 << 30;
+      case { max: v }: v;
+    }
+
+    if (max <= 0) return [];
+
     return 
-      doFind(within, check, function (docs, f) return [for (d in docs) if (f(d.data)) Reflect.copy(d)]);
+      doFind(within, check, function (docs, f) {
+        var ret = [];
+        for (d in docs) if (f(d.data)) 
+          if (ret.push(Reflect.copy(d)) >= max) break;
+        return ret;
+      });
+  }
   
-  public function count<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Int> 
+  public function count<A>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Int> 
     return 
       doFind(within, check, function (docs, f) {
         var ret = 0;
@@ -128,79 +135,118 @@ class MemoryDriver implements Driver {
         return ret; 
       });
   
-  public function set<A:{}>(id:Id<A>, within:CollectionName<A>, doc:ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>
+  public function set<A>(id:Id<A>, within:CollectionName<A>, doc:ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>
     return 
       collections.next(function (c) {
 
-        if (options == null) 
-          options = {}
-
-        var docs:Array<Document<A>> = 
+        return write(
           switch c[within] {
             case null: c[within] = [];
             case v: v;
-          }
-
-        var now = Date.now(),
-            old = byId(docs, id);
-
-        var nu = switch old {
-          case Some(v): 
-            switch options.ifNotModifiedSince {
-              case null:
-              case d: 
-                if (d.getTime() < v.updated.getTime())
-                  return new Error(Conflict, 'document `$within`.`$id` has been modified since $d');
-            }
-            var nu = shallowCopy(v);
-            replace(docs, v, nu);
-            nu;
-          case None: 
-            var blank = {
-              id: id,
-              created: now,
-              updated: now,
-              data: null
-            }
-            docs.push(blank);
-            blank;
-        }          
-
-        function rollback() 
-          switch old {
-            case Some(v):
-              replace(docs, nu, v);
-            case None:
-              docs.remove(nu);
-          }
-
-        try {
-          nu.data = engine.compile(doc)(shallowCopy(nu.data));
-        }
-        catch (e:Dynamic) {
-          rollback();
-          return new Error(Std.string(e));
-        }
-
-        var commit = persistence.commit(id, within, nu.data);
-        commit.handle(function (o) switch o {
-          case Success(d): 
-            nu.updated = Date.now();
-            if (old == None)
-              nu.created = nu.updated;
-          case Failure(e):
-            rollback();
+          },
+          id,
+          within,
+          doc,
+          options
+        ).next(function (o) return {
+          before: switch o.before {
+            case null: None;
+            case v: Some(v);
+          },
+          after: o.after,
         });
 
-        var ret = {
-          before: clone(old),
-          after: clone(nu),
-        }
-
-        return
-          if (options.patiently)
-            commit.next(function (_) return ret)
-          else 
-            ret;
       });
+
+  function write<A>(
+    docs:Array<Document<A>>, 
+    id:Id<A>, 
+    within:CollectionName<A>, 
+    doc:ExprOf<A, A>, 
+    ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }
+  ):Promise<{ before: Document<A>, after: Document<A> }> {
+
+    if (options == null)
+      options = {};
+
+    var now = Date.now(),
+        old = byId(docs, id);
+
+    var nu = switch old {
+      case Some(v): 
+        switch options.ifNotModifiedSince {
+          case null:
+          case d: 
+            if (d.getTime() < v.updated.getTime())
+              return new Error(Conflict, 'document `$within`.`$id` has been modified since $d');
+        }
+        var nu = shallowCopy(v);
+        replace(docs, v, nu);
+        nu;
+      case None: 
+        var blank = {
+          id: id,
+          created: now,
+          updated: now,
+          data: null
+        }
+        docs.push(blank);
+        blank;
+    }          
+
+    function rollback() 
+      switch old {
+        case Some(v):
+          replace(docs, nu, v);
+        case None:
+          docs.remove(nu);
+      }
+
+    try {
+      nu.data = engine.compile(doc)(nu.data);
+    }
+    catch (e:Dynamic) {
+      rollback();
+      return new Error(Std.string(e));
+    }
+
+    var commit = persistence.commit(id, within, nu.data);
+    commit.handle(function (o) switch o {
+      case Success(d): 
+        nu.updated = Date.now();
+        if (old == None)
+          nu.created = nu.updated;
+      case Failure(e):
+        rollback();
+    });
+
+    var ret = {
+      before: clone(old.orNull()),
+      after: clone(nu),
+    }
+
+    return
+      if (options.patiently)
+        commit.next(function (_) return ret)
+      else 
+        ret;
+        
+  }
+
+  public function update<A>(within:CollectionName<A>, check:ExprOf<A, Bool>, changes:ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool, ?max:Int }):Promise<Array<{ before:Document<A>, after:Document<A> }>>
+    return doFind(within, check, function (collection, check) {
+
+      var ret = [],
+          max = switch options {
+            case null | { max: null }: 1 << 30;
+            case { max: v }: v;
+          }
+
+      for (doc in collection) 
+        if (check(doc.data)) 
+          ret.push(write(collection, doc.id, within, changes, options));
+
+      return ret;
+    }).next(function (promises) return Promise.inParallel(promises));
+
 }
