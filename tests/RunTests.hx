@@ -124,6 +124,10 @@ class RunTests extends TestCase {
         if (i & (1 << f) != 0) fruit[f]
       ]
     ];
+    
+    db.users.set(dumpster.types.Id.ofString('hoho'), function (fields) return fields.patch(
+      function (u) return { email: 'hohoho!' }
+    )).handle(function (o) assert(!o.isSuccess()));
 
     Promise.inParallel([
       for (i in 0...128)

@@ -166,7 +166,9 @@ class SimpleEngine implements QueryEngine {
           case BitFlip: ~v;
           case Neg: -v;
           case Patch(fields, defaults):
-            if (v == null) defaults
+            if (v == null) 
+              if (defaults == null) throw "cannot patch `null`"
+              else defaults
             else 
               if (Reflect.isObject(v)) {
                 var ret:DynamicAccess<Any> = cast shallowCopy(v);

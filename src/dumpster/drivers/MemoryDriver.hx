@@ -87,11 +87,12 @@ class MemoryDriver implements Driver {
   
   function doFind<A:{}, Ret>(within:CollectionName<A>, check:ExprOf<A, Bool>, f:Array<Document<A>> -> (A->Bool) -> Ret):Promise<Ret>
     return
-      collections.next(function (c):Ret return switch c[within] {
+      collections.next(function (c) return switch c[within] {
         case null: 
           f([], function (_) return true);
         case v: 
-          f(v, engine.compile(check));
+          f.bind(v, engine.compile(check)).catchExceptions();
+          
       });
 
   static function clone<O>(value:O):O
@@ -165,7 +166,12 @@ class MemoryDriver implements Driver {
             blank;
         }          
 
-        nu.data = engine.compile(doc)(shallowCopy(nu.data));
+        try {
+          nu.data = engine.compile(doc)(shallowCopy(nu.data));
+        }
+        catch (e:Dynamic) {
+          return new Error(Std.string(e));
+        }
 
         var commit = persistence.commit(id, within, nu.data);
         commit.handle(function (o) switch o {
