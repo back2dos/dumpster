@@ -190,7 +190,7 @@ enum Binop<L, R, T> {
 }
 
 enum Unop<In, Out> {
-  Patch<O, F:{}>(fields:haxe.DynamicAccess<ExprOf<O, Dynamic>>):Unop<F, F>;
+  Patch<O, F:{}>(fields:haxe.DynamicAccess<ExprOf<O, Dynamic>>, defaults:F):Unop<F, F>;
   Not:Unop<Bool, Bool>;
   Log<T:Float>:Unop<T, Float>;
   BitFlip:Unop<Int, Int>;

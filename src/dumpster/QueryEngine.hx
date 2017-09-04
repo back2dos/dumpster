@@ -10,14 +10,26 @@ interface QueryEngine {
 }
 
 #if js
-class JsEngine implements QueryEngine {
-  
-  public function new() {}
+private class Jsifier {
+  static public function run(e:Expr) 
+    return new Jsifier().mk(e);
 
-  public function compile<O, T>(e:ExprOf<O, T>):O->T 
-    return eval('(function (arrayGet) { return (function (doc) { return ${js(e)}; }); })')(SimpleEngine.arrayGet);
+  function mk(e:Expr) {
+    var body = js(e);
+    var argList = [for (i in 0...args.length) '_$i'].join(', ');
+    var f = eval('(function ($argList) { return (function (doc) { return $body; }); })');
+    return Reflect.callMethod(null, f, args);
+  }
+
+  function value(v:Dynamic) 
+    return '_' + switch args.indexOf(v) {
+      case -1: (args.push(v) - 1);
+      case v: v;
+    }
   
-  static public function js(e:Expr)
+  var args:Array<Dynamic> = [];
+  function new() {}
+  function js(e:Expr)
     return switch (cast e:ExprData<Dynamic, Dynamic>) {
       case EDoc: 'doc';
       case EField(js(_) => obj, field): '$obj.$field';
@@ -41,9 +53,9 @@ class JsEngine implements QueryEngine {
           case BitOr: '($a | $b)';
           case BitXor: '($a ^ $b)';
         } 
-      case EConst(v): haxe.Json.stringify(v);
+      case EConst(v): value(v);
       case EIf(js(_) => a, js(_) => b, js(_) => c): '($a ? $b : $c)'; 
-      case EIndex(js(_)=> a, js(_) => i): '$a[$i]';
+      case EIndex(js(_)=> a, js(_) => i): '${value(SimpleEngine.arrayGet)}($a, $i)';
       case EUnop((_:Unop<Dynamic, Dynamic>) => op, js(_) => v): 
 
         function arrayOp(name:String, ret:String) 
@@ -56,14 +68,18 @@ class JsEngine implements QueryEngine {
           case Neg: '-$v';
           case Not: '!$v';
           case BitFlip: '~$v';
-          case Patch(fields): 
+          case Patch(fields, defaults): 
             var body = [for (name in fields.keys())
               'ret.$name = ${js(fields[name])};'
             ].join('\n');
-            '(function (ret) {
+            '(function (ret, defaults) {
+              if (ret == null) {
+                if (defaults == null) throw "cannot patch `null`";
+                return defaults;
+              }
               $body
               return ret;
-            })(Object.assign({}, $v))';
+            })(Object.assign({}, $v), ${value(defaults)})';
           case Log: 'Math.log($v)';
           case ArrayFilter(js(_) => cond): 
             arrayOp('filter', cond);
@@ -80,6 +96,15 @@ class JsEngine implements QueryEngine {
             arrayOp('map', nu);
         }
     }
+
+}
+class JsEngine implements QueryEngine {
+  
+  public function new() {}
+
+  public function compile<O, T>(e:ExprOf<O, T>):O->T 
+    return Jsifier.run(e);
+  
 }
 #end
 
@@ -140,15 +165,17 @@ class SimpleEngine implements QueryEngine {
           case Not: !v;
           case BitFlip: ~v;
           case Neg: -v;
-          case Patch(fields):
-            if (Reflect.isObject(v)) {
-              var ret:DynamicAccess<Any> = cast shallowCopy(v);
-              for (f in fields.keys())
-                ret[f] = rec(fields[f]);
-              ret;
-            } 
-            else
-              null;
+          case Patch(fields, defaults):
+            if (v == null) defaults
+            else 
+              if (Reflect.isObject(v)) {
+                var ret:DynamicAccess<Any> = cast shallowCopy(v);
+                for (f in fields.keys())
+                  ret[f] = rec(fields[f]);
+                ret;
+              } 
+              else
+                null;
           case Log: Math.log(v);
           case ArrayMap(step):
             withArray(v, function (a) return 
