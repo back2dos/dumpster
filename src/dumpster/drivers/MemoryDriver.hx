@@ -166,10 +166,19 @@ class MemoryDriver implements Driver {
             blank;
         }          
 
+        function rollback() 
+          switch old {
+            case Some(v):
+              replace(docs, nu, v);
+            case None:
+              docs.remove(nu);
+          }
+
         try {
           nu.data = engine.compile(doc)(shallowCopy(nu.data));
         }
         catch (e:Dynamic) {
+          rollback();
           return new Error(Std.string(e));
         }
 
@@ -180,12 +189,7 @@ class MemoryDriver implements Driver {
             if (old == None)
               nu.created = nu.updated;
           case Failure(e):
-            switch old {
-              case Some(v):
-                replace(docs, nu, v);
-              case None:
-                docs.remove(nu);
-            }
+            rollback();
         });
 
         var ret = {
