@@ -1,3 +1,3 @@
 package dumpster.types;
 
-abstract CollectionName<A:{}>(String) to String {}
+abstract CollectionName<A>(String) to String {}

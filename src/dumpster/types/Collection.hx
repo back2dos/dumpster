@@ -18,7 +18,7 @@ class CollectionBase<A:{}, Fields> {
   }
 
   public function find(?criterion:Fields->ExprOf<A, Bool>)
-    return driver.find(name, switch criterion {
+    return driver.findAll(name, switch criterion {
       case null: true;
       case f: f(fields);
     });
@@ -28,5 +28,8 @@ class CollectionBase<A:{}, Fields> {
       case null: true;
       case f: f(fields);
     });
+
+  public function set(id:Id<A>, doc:Fields->ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>
+    return driver.set(id, name, doc(fields), options);
 
 }

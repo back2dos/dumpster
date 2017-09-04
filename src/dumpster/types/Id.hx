@@ -2,7 +2,7 @@ package dumpster.types;
 
 using StringTools;
 
-abstract Id<A:{}>(String) {
+abstract Id<A>(String) {
   
   static inline var EXT = '.dump.json';
   
@@ -21,7 +21,7 @@ abstract Id<A:{}>(String) {
       else
         None;
 
-  @:from static public function ofString<T:{}>(s:String):Id<T> {
+  @:from static public function ofString<T>(s:String):Id<T> {
     var ret = new StringBuf(),
         s = haxe.io.Bytes.ofString(s);
         

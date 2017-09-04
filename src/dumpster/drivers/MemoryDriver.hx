@@ -3,6 +3,7 @@ package dumpster.drivers;
 import dumpster.drivers.Driver;
 import dumpster.AST;
 import haxe.DynamicAccess;
+import dumpster.QueryEngine.SimpleEngine.shallowCopy;
 
 private class Ephemere implements Persistence {
   public function new() {}
@@ -43,6 +44,14 @@ class MemoryDriver implements Driver {
     }
     return shutdownProgress;
   }
+
+  static inline function replace<A>(a:Array<A>, old:A, nu:A)
+    return switch a.indexOf(old) {
+      case -1: false;
+      case v: 
+        a[v] = nu;
+        true;
+    }
 
   static inline function first<A>(a:Array<A>, f:A->Bool) {
     var ret = None;
@@ -85,7 +94,27 @@ class MemoryDriver implements Driver {
           f(v, engine.compile(check));
       });
 
-  public function find<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>
+  static function clone<O>(value:O):O
+    return switch Type.typeof(value) {
+      case TInt | TBool | TFloat | TClass(String) | TUnknown | TFunction | TNull: value;
+      case TObject:
+        var o:DynamicAccess<Any> = cast value,
+            copy = new DynamicAccess();
+        for (k in o.keys())
+          copy[k] = o[k];
+        cast copy;
+      case TClass(Array):
+        cast [for (x in (cast value : Array<Dynamic>)) clone(x)];
+      case TClass(cl):
+        var ret = Type.createEmptyInstance(cl);
+        for (f in Type.getInstanceFields(cl))
+          Reflect.setField(ret, f, Reflect.field(value, f));
+        ret;
+      case TEnum(e):
+        Type.createEnumIndex(e, Type.enumIndex(cast value), clone(Type.enumParameters(cast value)));
+    }
+
+  public function findAll<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>
     return 
       doFind(within, check, function (docs, f) return [for (d in docs) if (f(d.data)) Reflect.copy(d)]);
   
@@ -98,102 +127,70 @@ class MemoryDriver implements Driver {
         return ret; 
       });
   
-  static function shallowCopy<A:{}>(obj:A):A {
-    var d:DynamicAccess<Any> = obj;
-    var ret = new DynamicAccess();
-    for (k in d.keys())
-      ret[k] = d[k];
-    return cast ret;
-  }
-
-  public function update<A:{}>(id:Id<A>, within:CollectionName<A>, patch:PatchFor<A>, ?options:{ ?assuming:UpdateCondition, ?patiently:Bool }):Promise<A>
+  public function set<A:{}>(id:Id<A>, within:CollectionName<A>, doc:ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>
     return 
       collections.next(function (c) {
-        var v:Array<Document<A>> = 
+
+        if (options == null) 
+          options = {}
+
+        var docs:Array<Document<A>> = 
           switch c[within] {
             case null: c[within] = [];
             case v: v;
           }
-        var doc = None;
-        if (options == null)
-          options = {};
-        
-        for (d in (v:Array<Document<A>>))
-          if (d.id == id) {
-            doc = Some(d);
-            break;
-          }
 
-        function doUpdate(doc:Document<A>):Promise<A> {
-          var patch = patch.fields(),
-              nu = shallowCopy(doc.data);
-          
-          var updates = [for (key in patch.keys()) 
-            key => engine.compile(patch[key])(doc.data)
-          ];
+        var now = Date.now(),
+            old = byId(docs, id);
 
-          for (k in updates.keys())
-            switch updates[k] {
-              case null: Reflect.deleteField(nu, k);
-              case v: Reflect.setField(nu, k, v);
+        var nu = switch old {
+          case Some(v): 
+            switch options.ifNotModifiedSince {
+              case null:
+              case d: 
+                if (d.getTime() < v.updated.getTime())
+                  return new Error(Conflict, 'document `$within`.`$id` has been modified since $d');
             }
-          
-          var backup = shallowCopy(doc);
-
-          doc.data = nu;
-          doc.updated = Date.now();
-          if (doc.created == null) {
-            doc.created = doc.updated;
-            v.push(doc);
-          }
-
-          var commit = persistence.commit(id, within, nu);
-          commit.handle(function (o) switch o {
-            case Success(d): 
-              doc.updated = Date.now();
-              if (backup.created == null)
-                doc.created = doc.updated;
-            case Failure(e):
-              if (backup.created == null)
-                v.remove(doc);
-              else {
-                doc.data = backup.data;
-                doc.updated = backup.updated;
-              }
-          });
-
-          var copy = Reflect.copy(nu);
-
-          return
-            if (options.patiently)
-              commit.next(function (_) return copy)
-            else 
-              copy;
-        }
-        
-        return switch doc {
-          case Some(doc): 
-            switch options.assuming {
-              case NotExists: 
-                new Error(Conflict, 'document `$id` already exists in collection `$within`');
-              case NotModifiedSince(d) if (d.getTime() < doc.updated.getTime()):
-                new Error(Conflict, 'document `$within`.`$id` has changed since $d');
-              default: 
-                doUpdate(doc);
-            }
-
+            var nu = shallowCopy(v);
+            replace(docs, v, nu);
+            nu;
           case None: 
-            switch options.assuming {
-              case null | NotExists | NotModifiedSince(_):
-                doUpdate({
-                  id: id,
-                  data: cast {},
-                  created: null,
-                  updated: null,
-                });
-              case Exists:
-                new Error(NotFound, 'document `$id` not found in collection `$within`');
+            var blank = {
+              id: id,
+              created: now,
+              updated: now,
+              data: null
             }
+            docs.push(blank);
+            blank;
+        }          
+
+        nu.data = engine.compile(doc)(shallowCopy(nu.data));
+
+        var commit = persistence.commit(id, within, nu.data);
+        commit.handle(function (o) switch o {
+          case Success(d): 
+            nu.updated = Date.now();
+            if (old == None)
+              nu.created = nu.updated;
+          case Failure(e):
+            switch old {
+              case Some(v):
+                replace(docs, nu, v);
+              case None:
+                docs.remove(nu);
+            }
+        });
+
+        var ret = {
+          before: clone(old),
+          after: clone(nu),
         }
-      }).eager();
+
+        return
+          if (options.patiently)
+            commit.next(function (_) return ret)
+          else 
+            ret;
+      });
 }

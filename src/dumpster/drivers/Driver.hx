@@ -5,19 +5,10 @@ import dumpster.AST;
 interface Driver {
   function get<A:{}>(id:Id<A>, within:CollectionName<A>):Promise<Document<A>>;
   function findOne<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Option<Document<A>>>;
-  function find<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>;
+  function findAll<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Array<Document<A>>>;
   function count<A:{}>(within:CollectionName<A>, check:ExprOf<A, Bool>):Promise<Int>;
-  function update<A:{}>(id:Id<A>, within:CollectionName<A>, patch:PatchFor<A>, ?options:{ ?assuming:UpdateCondition, ?patiently:Bool }):Promise<A>;
+  function set<A:{}>(id:Id<A>, within:CollectionName<A>, doc:ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>;
+  // function updateOne<A:{}>(id:Id<A>, within:CollectionName<A>, check:ExprOf<A, Bool>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<A>;
+  // function updateAll<A:{}>(id:Id<A>, within:CollectionName<A>, check:ExprOf<A, Bool>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<A>;
   function shutdown():Promise<Noise>;
-}
-
-enum UpdateCondition {
-  Exists;
-  NotExists;
-  NotModifiedSince(date:Date);
-}
-
-abstract PatchFor<A>(haxe.DynamicAccess<ExprOf<A, Dynamic>>) {
-  public function fields()
-    return this;
 }

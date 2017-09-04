@@ -17,9 +17,6 @@ class CollectionBuilder {
           super(cast name, new dumpster.types.Fields<$doc>(), driver);
         }
 
-        public function updateById(id:Id<$doc>, run:dumpster.types.Fields<$doc>->dumpster.types.Patch<$doc>, ?when):tink.core.Promise<$doc> {
-          return this.driver.update(id, name, cast run(fields), when);
-        }
       };
     });
   }
