@@ -49,7 +49,7 @@ private class LocalStoragePersistence implements Persistence {
     }
     this.storage = storage;
   }
-  public function commit<A:{}>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
+  public function commit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
     var updated = Date.now();
     var key = '$prefix.$collection.$id';
     var created = switch storage.getItem(key) {
