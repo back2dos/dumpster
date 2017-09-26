@@ -38,7 +38,7 @@ class CollectionBase<A:{}, Data> {
   public function set(id:Id<A>, doc:Data->ExprOf<A, A>, ?options:{ ?ifNotModifiedSince:Date, ?patiently:Bool }):Promise<{ before: Option<Document<A>>, after: Document<A> }>
     return driver.set(id, name, doc(fields), options);
 
-  public function updateOne(id:Id<A>, criterion:Data->ExprOf<A, Bool>, changes:Data->ExprOf<A, A>, ?o:{ ?ifNotModifiedSince:Date, ?patiently:Bool }) {
+  public function updateOne(criterion:Data->ExprOf<A, Bool>, changes:Data->ExprOf<A, A>, ?o:{ ?ifNotModifiedSince:Date, ?patiently:Bool }) {
     if (o == null) o = {};
     return 
       driver.update(name, criterion(fields), changes(fields), { patiently: o.patiently, ifNotModifiedSince: o.ifNotModifiedSince, max: 1 })
@@ -48,7 +48,7 @@ class CollectionBase<A:{}, Data> {
         });
   }
 
-  public function updateAll(id:Id<A>, criterion:Data->ExprOf<A, Bool>, changes:Data->ExprOf<A, A>, ?options) 
+  public function updateAll(criterion:Data->ExprOf<A, Bool>, changes:Data->ExprOf<A, A>, ?options) 
     return driver.update(name, criterion(fields), changes(fields), options);
   
 
