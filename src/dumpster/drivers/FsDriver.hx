@@ -89,10 +89,10 @@ private class FsPersistence implements Persistence {
 
   function doCommit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Noise> 
     return ensureDir('$path/$collection').next(function (dir) {
-      var final = '$dir/${id.toFileName()}';
-      var tmp = '$final.tmp';
+      var _final = '$dir/${id.toFileName()}';
+      var tmp = '$_final.tmp';
       return p(tmp.saveContent(haxe.Json.stringify(payload, "  ")))
-        .next(function (_) return tmp.rename(final));
+        .next(function (_) return tmp.rename(_final));
     });
 
   public function commit<A>(id:Id<A>, collection:CollectionName<A>, payload:A):Promise<Date> {
